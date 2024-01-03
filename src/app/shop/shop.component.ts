@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { Product } from '../shared/models/product';
 import { ShopService } from './shop.service';
 import { Brand } from '../shared/models/brand';
 import { Type } from '../shared/models/type';
+import { ShopParams } from '../shared/models/shopParams';
 
 @Component({
   selector: 'app-shop',
@@ -10,17 +11,18 @@ import { Type } from '../shared/models/type';
   styleUrls: ['./shop.component.scss']
 })
 export class ShopComponent implements OnInit {
+@ViewChild('search') searchTerm?: ElementRef;
+
   products: Product[] = [];
   brands: Brand[] = [];
   types: Type[] = [];
-  brandIdSelected = 0;
-  typeIdSelected = 0;
-  sortSelected = "name";
+  shopParams = new ShopParams();
   sortOptions = [
     { name: 'Alphabetical', value: 'name' },
     { name: 'Price: Low to high', value: 'priceAsc' },
     { name: 'Price: High to low', value: 'priceDesc' }
-  ]
+  ];
+
   constructor(private shopServices: ShopService) { }
 
   ngOnInit(): void {
@@ -30,10 +32,16 @@ export class ShopComponent implements OnInit {
   }
 
   getProducts() {
-    this.shopServices.getProducts(this.brandIdSelected, this.typeIdSelected, this.sortSelected).subscribe({
-      next: res => this.products = res.data,
+    this.shopServices.getProducts(this.shopParams).subscribe({
+      next: res => {
+        console.log(res)
+        this.products = res.data;
+        this.shopParams.pageIndex = res.pageIndex;
+        this.shopParams.pageSize = res.pageSize;
+        this.shopParams.totalCount = res.count;
+      },
       error: error => console.log(error),
-      complete: () => console.log('Completed')
+      complete: () => console.log(this.products)
     });
   }
 
@@ -41,7 +49,7 @@ export class ShopComponent implements OnInit {
     this.shopServices.getBrands().subscribe({
       next: res => this.brands = [{ id: 0, name: 'All' }, ...res],
       error: error => console.log(error),
-      complete: () => console.log('Completed')
+      complete: () => console.log('getBrands')
     });
   }
 
@@ -49,23 +57,44 @@ export class ShopComponent implements OnInit {
     this.shopServices.getTypes().subscribe({
       next: res => this.types = [{ id: 0, name: 'All' }, ...res],
       error: error => console.log(error),
-      complete: () => console.log('Completed')
+      complete: () => console.log('getTypes')
     });
   }
 
   onBrandSelected(brandId: number) {
-    this.brandIdSelected = brandId;
+    this.shopParams.brandId = brandId;
+    this.shopParams.pageIndex = 1;
     this.getProducts();
   }
 
   onTypeSelected(typeId: number) {
-    this.typeIdSelected = typeId;
+    this.shopParams.typeId = typeId;
+    this.shopParams.pageIndex = 1;
     this.getProducts();
   }
 
   onSortSelected(event: any) {
-    this.sortSelected = event.target.value;
+    this.shopParams.sort = event.target.value;
     this.getProducts();
   }
+
+  onPageChanged(event: any) {
+    if (this.shopParams.pageIndex !== event) {
+      this.shopParams.pageIndex = event;
+      this.getProducts();
+    }
+  }
+
+onSearch(){
+  this.shopParams.search = this.searchTerm?.nativeElement.value;
+  this.shopParams.pageIndex = 1;
+  this.getProducts();
+}
+
+onReset(){
+    if(this.searchTerm) this.searchTerm.nativeElement.value = '';
+    this.shopParams = new ShopParams();
+    this.getProducts();
+}
 
 }
